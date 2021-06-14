@@ -28,33 +28,37 @@ int* koltuk;
 
 int main(int argc, char** args)
 {
-if(argc!=2)
+
+if(argc!=2)   //eğer program başlatılırken argüman girilmemişse ya da birden fazla argüman girilmişse ekrana parçalama hatası yazdırılır, örn ./uyuyanberber , veya ./uyuyanberber 5 4, veya ./uyuyanberber 5 1 9 gibi hatalar
 {
-printf("Error!\n\n");
+printf("Parçalama hatası!\n\n");
 return EXIT_FAILURE;
 }
 
-musteriSayi=atoi(args[1]);   //kullanıcıdan müşteri sayısını atoi ile değişkene atama
+musteriSayi=atoi(args[1]);   //kullanıcıdan alınan müşteri sayısını atoi ile musteriSayi değişkenine atama
 bosBeklemeKoltugu=beklemeKoltugu;
 koltuk=(int*) malloc(sizeof(int)*beklemeKoltugu);   //bellek yönetimi
 
-if(musteriSayi>SALON_KAPASITE)   //salon kapasitesinden fazla bir müşteri sayısı girilirse uygulamadan çıkış yapıyor
+if(musteriSayi>SALON_KAPASITE)   //salon kapasitesinden fazla bir müşteri sayısı girilirse ekrana sınır değeri yazdırılır, çıkış yapar
 {
-printf("\nMüşteri sınırı: %d\n\n",SALON_KAPASITE);
+printf("\nSalon kapasitesi: %d\n",SALON_KAPASITE);
 return EXIT_FAILURE;
 }
 
-//kullanıcıdan alınan müşteri sayısı ve define tanımlanan verilerin ekrana yazdırılması
-printf("\nMüşteri sayısı: %d",musteriSayi);
-printf("\nBekleme koltuğu sayısı: %d",beklemeKoltugu);
-printf("\nTraş koltuğu sayısı: %d\n\n",trasKoltugu);
+//kullanıcıdan alınan müşteri sayısının ve define tanımlanan verilerin ekrana yazdırılması
+printf("\nMüşteri sayısı: %d\n\n", musteriSayi);
+printf("Bekleme koltuğu sayısı: %d\n\n", beklemeKoltugu);   //sabit bekleme koltuk sayısı
+printf("Traş koltuğu sayısı: %d\n", trasKoltugu);   //sabit traş koltuğu sayısı
+printf("\n");
 
-pthread_t berberler[trasKoltugu], musteriler[musteriSayi];   //thread oluşturma
+//threadlerin oluşturulması
+pthread_t berberler[trasKoltugu];
+pthread_t musteriler[musteriSayi];   
 
-//semaforları ilklendirme
-sem_init(&sem_berber, 0, 0);
-sem_init(&sem_musteri, 0, 0);
-sem_init(&sem_mutex, 0, 1);
+//semaforların ilklendirilmesi
+sem_init(&sem_berber, 0, 0);   //berber semaforuna ilk değer 
+sem_init(&sem_musteri, 0, 0);   //müşteri semaforuna ilk değer
+sem_init(&sem_mutex, 0, 1);   //mutex semaforuna ilk değer
 
 printf("Dükkan açıldı..\n\n");
 
@@ -74,40 +78,44 @@ pthread_create(&musteriler[i], NULL, (void*)Musteri, (void*)&i);
 MusteriOlusturma();
 }
 
-
 for(i=0; i<musteriSayi; i++)
 {
 pthread_join(musteriler[i], NULL);   //tüm müşterilerin işlemi bittikten sonra threadin kapatılması
 }
-
-printf("\n Tüm müşterilerin traşı tamamlandı, dükkan kapandı. Berberler eve döndü..\n\n");
-
+printf("\n Tüm müşterilerin traşı tamamlandı, dükkan kapandı. Berberler eve döndü..\n");
 return EXIT_SUCCESS;
+}
+
+void MusteriOlusturma()
+{
+//ms cinsinden random aralıklarla müşteri oluşturma
+srand((unsigned int)time(NULL));
+usleep(rand()%(100000-25000+1)+25000);
 }
 
 
 void Berber (void* sayi)
 {
 int x=*(int*)sayi+1;   //1. ve 2. berber belirten değişken
-int siradakiMusteri, musteriId;
+int musteriId;
+int nextMusteri;
 
 printf("%d. Berber dükkana geldi.\n", x);
 
 while(2==2)
-{
-if(!musteriId)   //salonda müşteri yoksa berber uyumaya gider
-{
-printf("%d. Berber uyumaya gitti.\n\n", x);
-}
+{ //salonda müşteri yoksa berber uyumaya gider
+if(!musteriId)  printf("%d. Berber uyumaya gitti.\n", x);
+
 
 sem_wait(&sem_berber);   //uyuyan berber kuyruğuna katılma
 sem_wait(&sem_mutex);   //koltuk kilitleme
 
 //traş edilecek müşteriyi seçme
-salonMusteri = (++salonMusteri) % beklemeKoltugu;
-siradakiMusteri = salonMusteri;
-musteriId=koltuk[siradakiMusteri];
-koltuk[siradakiMusteri]=pthread_self();   //iş parçacığının id'sini döndürme
+salonMusteri = (++salonMusteri)%beklemeKoltugu;
+nextMusteri = salonMusteri;
+musteriId=koltuk[nextMusteri];
+//iş parçacığının id’sini döndürme
+koltuk[nextMusteri]=pthread_self();   
 
 sem_post(&sem_mutex);   //koltuk kilidini kaldırma
 sem_post(&sem_musteri);   //müşterinin traşına başlama
@@ -123,10 +131,10 @@ printf("%d. Berber, %d. müşterinin traşını bitirdi.\n", x, musteriId);
 void Musteri (void* sayi)
 {
 int x=*(int*)sayi+1;   //hangi müşterinin olduğunu belirten değişken
-int oturulanKoltuk, berberId;
+int doluKoltuk;
+int berberId;   //berberleri ayırt etmek için
 
 sem_wait(&sem_mutex);   //başlangıçta oturulmaması için koltuk kilitleme
-
 printf("%d. Müşteri dükkana geldi..\n", x);
 
 if(bosBeklemeKoltugu>0)   //bekleme salonunda boş koltuk varsa
@@ -137,8 +145,8 @@ printf("%d. Müşteri bekleme salonunda bekliyor.\n", x);
 
 //müşterinin bekleme salonunda oturacağı koltuğu seçme
 musaitKoltuk=(++musaitKoltuk)%beklemeKoltugu;
-oturulanKoltuk=musaitKoltuk;
-koltuk[oturulanKoltuk]=x;
+doluKoltuk=musaitKoltuk;
+koltuk[doluKoltuk]=x;
 
 sem_post(&sem_mutex);   //koltuk kilidini kaldırma
 sem_post(&sem_berber);   //berberi uyandırma
@@ -147,7 +155,7 @@ sem_wait(&sem_musteri);   //bekleyen müşteri kuyruğuna katılma
 sem_wait(&sem_mutex);   //koltuk kilitleme
 
 //müşteriyi traş koltuğuna oturtma
-berberId=koltuk[oturulanKoltuk];
+berberId=koltuk[doluKoltuk];
 bosBeklemeKoltugu++;
 
 sem_post(&sem_mutex);   //işlemler tamamlandı, koltuk kilidini kaldır
@@ -155,14 +163,6 @@ sem_post(&sem_mutex);   //işlemler tamamlandı, koltuk kilidini kaldır
 else   //bekleme salonu doluysa, müşteriyi geri gönderme
 {
 sem_post(&sem_mutex);
-printf("%d. Müşteri bekleme salonunda yer bulamadı, dükkandan ayrılıyor..\n\n", x);
-}
-pthread_exit(0);
-}
-
-void MusteriOlusturma()
-{
-//ms cinsinden random aralıklarla müşteri oluşturma
-srand((unsigned int)time(NULL));
-usleep(rand()%(100000-25000+1)+25000);
+printf("%d. Müşteri bekleme salonunda yer bulamadı, dükkandan çıktı..\n", x);
+}pthread_exit(0);
 }
