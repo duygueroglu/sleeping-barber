@@ -38,7 +38,7 @@ musteriSayi=atoi(args[1]);   //kullanıcıdan müşteri sayısını atoi ile de�
 bosBeklemeKoltugu=beklemeKoltugu;
 koltuk=(int*) malloc(sizeof(int)*beklemeKoltugu);   //bellek yönetimi
 
-if(musteriSayi>SALON_KAPASITE)   //salon kapasitesinden fazla bir müşteri sayısı girilirse uygulamayı çalıştırmadan çıkış yapıyor
+if(musteriSayi>SALON_KAPASITE)   //salon kapasitesinden fazla bir müşteri sayısı girilirse uygulamadan çıkış yapıyor
 {
 printf("\nMüşteri sınırı: %d\n\n",SALON_KAPASITE);
 return EXIT_FAILURE;
